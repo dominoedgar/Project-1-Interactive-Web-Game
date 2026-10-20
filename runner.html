@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shape Dash – A Bauhaus Runner Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;700&family=Archivo+Black&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #E03A2F;
+    --yellow: #F5C518;
+    --blue: #1E4D9B;
+    --black: #151515;
+    --paper: #EEEBE3;
+    --display: "Archivo Black", "Arial Black", Impact, sans-serif;
+    --body: "Josefin Sans", "Futura", "Century Gothic", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--body);
+    background: var(--paper);
+    color: var(--black);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  main { width: 100%; max-width: 800px; border: 4px solid var(--black); background: var(--paper); align-self: flex-start; }
+  .screen { display: none; padding: 2rem; }
+  .screen.active { display: block; }
+
+  /* ---------- Title ---------- */
+  .hero { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 4px solid var(--black); }
+  .hero .art {
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    min-height: 220px; border-right: 4px solid var(--black);
+  }
+  .art div { transition: transform .4s ease; }
+  .art .a { background: var(--red); border-radius: 0 100% 0 0; }
+  .art .b { background: var(--yellow); }
+  .art .c { background: var(--blue); border-radius: 50%; margin: 12%; }
+  .art .d { background: var(--black); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .hero:hover .art .a { transform: rotate(90deg); }
+  .hero:hover .art .d { transform: rotate(180deg); }
+  .hero h1 {
+    font-family: var(--display); font-size: clamp(2rem, 7vw, 3.4rem);
+    line-height: 1; padding: 1.5rem; align-self: end; text-transform: uppercase;
+  }
+  .rules { padding: 1.5rem 0 .5rem; max-width: 56ch; }
+  .rules h2 { font-family: var(--display); font-size: 1.2rem; margin-bottom: .6rem; }
+  .rules ol { padding-left: 1.3rem; line-height: 1.6; font-size: 1.05rem; }
+  .keys { margin-top: 1rem; font-weight: 700; }
+  kbd { border: 3px solid var(--black); background: #fff; padding: .1rem .6rem; font-family: var(--display); font-size: .9rem; }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    font-family: var(--display); font-size: 1.1rem; background: var(--red); color: #fff;
+    border: 4px solid var(--black); padding: .8rem 1.6rem; margin-top: 1.5rem; cursor: pointer;
+    box-shadow: 6px 6px 0 var(--black);
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  }
+  .btn:hover { background: var(--blue); }
+  .btn:active { transform: translate(6px, 6px); box-shadow: 0 0 0 var(--black); }
+  button:focus-visible { outline: 4px solid var(--yellow); outline-offset: 3px; }
+
+  /* ---------- HUD ---------- */
+  .hud { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: space-between; margin-bottom: 1rem; }
+  .stat { border: 3px solid var(--black); padding: .4rem .9rem; font-weight: 700; background: #fff; }
+  .stat span { font-family: var(--display); font-size: 1.3rem; margin-left: .3rem; }
+  .stat.bump { animation: bump .3s ease; }
+  @keyframes bump { 50% { transform: scale(1.15); background: var(--yellow); } }
+
+  /* ---------- Stage ---------- */
+  .stage {
+    position: relative; height: 300px; overflow: hidden; cursor: pointer;
+    border: 4px solid var(--black); background: var(--paper);
+    transition: background-color .8s ease; touch-action: manipulation; user-select: none;
+  }
+  .stage.lv2 { background: #F7DE86; }
+  .stage.lv3 { background: #A9C0E6; }
+  .stage.lv4 { background: #F2A9A2; }
+  .sun {
+    position: absolute; right: 8%; top: 28px; width: 70px; height: 70px;
+    border-radius: 50%; background: var(--yellow); border: 4px solid var(--black);
+  }
+  .ground {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 50px;
+    background: var(--black);
+    background-image: repeating-linear-gradient(90deg, var(--yellow) 0 24px, transparent 24px 72px);
+    background-size: 72px 8px; background-repeat: repeat-x; background-position: 0 8px;
+    border-top: 4px solid var(--black);
+  }
+  #player {
+    position: absolute; left: 60px; bottom: 50px; width: 44px; height: 44px;
+    background: var(--red); border: 4px solid var(--black);
+  }
+  #player::after {
+    content: ""; position: absolute; right: 6px; top: 8px; width: 10px; height: 10px;
+    background: var(--yellow); border: 3px solid var(--black); border-radius: 50%;
+  }
+  #player.dead { background: var(--black); transition: transform .5s ease, opacity .5s ease; transform: translateY(40px) rotate(120deg) !important; opacity: .4; }
+  .obstacle { position: absolute; bottom: 50px; }
+  .obstacle.spike { background: var(--black); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .obstacle.block { background: var(--blue); border: 4px solid var(--black); }
+  .obstacle.dome  { background: var(--red); border: 4px solid var(--black); border-radius: 100% 100% 0 0; }
+  .coin {
+    position: absolute; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--yellow); border: 4px solid var(--black);
+  }
+  .coin.got { animation: pop .3s ease forwards; }
+  @keyframes pop { to { transform: translateY(-40px) scale(1.6); opacity: 0; } }
+  .banner {
+    position: absolute; top: 40%; left: 0; right: 0; text-align: center;
+    font-family: var(--display); font-size: 2rem; text-transform: uppercase;
+    opacity: 0; pointer-events: none;
+  }
+  .banner.show { animation: banner 1.2s ease; }
+  @keyframes banner { 0% { opacity: 0; transform: scale(.6); } 20%, 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.1); } }
+  .tip { margin-top: .8rem; font-weight: 700; }
+
+  /* ---------- End screens ---------- */
+  .end h2 { font-family: var(--display); font-size: clamp(2rem, 8vw, 4rem); line-height: 1; text-transform: uppercase; margin-bottom: 1rem; }
+  .end.win h2 { color: var(--blue); }
+  .end.lose h2 { color: var(--red); }
+  .end p { font-size: 1.15rem; line-height: 1.5; max-width: 48ch; }
+  .results { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.2rem; }
+
+  @media (max-width: 560px) {
+    body { padding: .5rem; }
+    .screen { padding: 1rem; }
+    .hero { grid-template-columns: 1fr; }
+    .hero .art { border-right: none; border-bottom: 4px solid var(--black); min-height: 160px; }
+    .stage { height: 260px; }
+    .banner { font-size: 1.4rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .banner.show, .stat.bump { animation: none; } .stage { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- BEGINNING -->
+  <section id="start-screen" class="screen active">
+    <div class="hero">
+      <div class="art" aria-hidden="true"><div class="a"></div><div class="b"></div><div class="c"></div><div class="d"></div></div>
+      <h1>Shape Dash</h1>
+    </div>
+    <div class="rules">
+      <h2>How to play</h2>
+      <ol>
+        <li>You are the red square. You run automatically.</li>
+        <li>Jump over the black spikes, blue blocks and red domes.</li>
+        <li>Grab yellow coins for bonus points.</li>
+        <li>Reach 600 m to win. The game gets faster every level.</li>
+      </ol>
+      <p class="keys">Jump with <kbd>Space</kbd>, <kbd>↑</kbd>, or by clicking / tapping the game.</p>
+    </div>
+    <button id="start-btn" class="btn">Start running</button>
+  </section>
+
+  <!-- GAMEPLAY -->
+  <section id="game-screen" class="screen">
+    <div class="hud">
+      <div class="stat">Level<span id="level">1</span></div>
+      <div class="stat">Distance<span id="distance">0</span> m</div>
+      <div class="stat" id="coin-box">Coins<span id="coins">0</span></div>
+    </div>
+    <div id="stage" class="stage" aria-label="Game area. Press space or tap to jump.">
+      <div class="sun"></div>
+      <div id="banner" class="banner"></div>
+      <div id="player"></div>
+      <div id="ground" class="ground"></div>
+    </div>
+    <p class="tip">Press Space, ↑, or tap the game to jump.</p>
+  </section>
+
+  <!-- ENDING: win -->
+  <section id="win-screen" class="screen end win">
+    <h2>Finish line</h2>
+    <p id="win-text"></p>
+    <div class="results">
+      <div class="stat">Coins<span id="win-coins">0</span></div>
+      <div class="stat">Score<span id="win-score">0</span></div>
+    </div>
+    <button class="btn restart">Run again</button>
+  </section>
+
+  <!-- ENDING: lose -->
+  <section id="lose-screen" class="screen end lose">
+    <h2>Crashed</h2>
+    <p id="lose-text"></p>
+    <div class="results">
+      <div class="stat">Distance<span id="lose-distance">0</span> m</div>
+      <div class="stat">Score<span id="lose-score">0</span></div>
+    </div>
+    <button class="btn restart">Try again</button>
+  </section>
+
+</main>
+
+<script>
+  // ---------- Constants ----------
+  const GRAVITY = 2400;          // px/s^2
+  const JUMP_SPEED = 860;        // px/s
+  const AIR_TIME = (2 * JUMP_SPEED) / GRAVITY;
+  const GOAL = 600;              // meters to win
+  const LEVEL_LENGTH = 150;      // meters per level
+  const PX_PER_METER = 40;
+  const PLAYER_X = 60, PLAYER_SIZE = 44, GROUND = 50;
+  const OBSTACLE_TYPES = [
+    { cls: "spike", w: 40, h: 42 },
+    { cls: "block", w: 38, h: 58 },
+    { cls: "dome",  w: 70, h: 36 }
+  ];
+
+  // ---------- Game state ----------
+  let running = false;
+  let lastTime = 0;
+  let speed, distance, coins, level;
+  let playerY, velocityY, airTime, onGround;
+  let obstacles, coinList, spawnCountdown, groundOffset;
+
+  // ---------- DOM references ----------
+  const screens = {
+    start: document.getElementById("start-screen"),
+    game: document.getElementById("game-screen"),
+    win: document.getElementById("win-screen"),
+    lose: document.getElementById("lose-screen")
+  };
+  const stage = document.getElementById("stage");
+  const player = document.getElementById("player");
+  const groundEl = document.getElementById("ground");
+  const banner = document.getElementById("banner");
+  const levelEl = document.getElementById("level");
+  const distanceEl = document.getElementById("distance");
+  const coinsEl = document.getElementById("coins");
+  const coinBox = document.getElementById("coin-box");
+
+  // ---------- Helpers ----------
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.remove("active"));
+    screens[name].classList.add("active");
+  }
+  function rand(min, max) { return min + Math.random() * (max - min); }
+  function score() { return Math.floor(distance) + coins * 10; }
+  function showBanner(text) {
+    banner.textContent = text;
+    banner.classList.remove("show");
+    void banner.offsetWidth;
+    banner.classList.add("show");
+  }
+
+  // ---------- Game flow ----------
+  function startGame() {
+    // clear leftovers from a previous run
+    document.querySelectorAll(".obstacle, .coin").forEach(el => el.remove());
+    obstacles = [];
+    coinList = [];
+    speed = 420;
+    distance = 0;
+    coins = 0;
+    level = 1;
+    playerY = 0;
+    velocityY = 0;
+    airTime = 0;
+    onGround = true;
+    groundOffset = 0;
+    spawnCountdown = 500;
+
+    player.classList.remove("dead");
+    player.style.bottom = GROUND + "px";
+    player.style.transform = "rotate(0deg)";
+    stage.className = "stage lv1";
+    updateHUD();
+    showScreen("game");
+    showBanner("Level 1");
+
+    running = true;
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  function loop(now) {
+    if (!running) return;
+    const dt = Math.min((now - lastTime) / 1000, 0.033);
+    lastTime = now;
+    update(dt);
+    if (running) requestAnimationFrame(loop);
+  }
+
+  function update(dt) {
+    // progress and difficulty
+    distance += (speed * dt) / PX_PER_METER;
+    const newLevel = Math.min(Math.floor(distance / LEVEL_LENGTH) + 1, 4);
+    if (newLevel !== level) {
+      level = newLevel;
+      speed = 420 + (level - 1) * 80;
+      stage.className = "stage lv" + level;
+      showBanner("Level " + level);
+    }
+
+    // player physics
+    if (!onGround) {
+      velocityY -= GRAVITY * dt;
+      playerY += velocityY * dt;
+      airTime += dt;
+      if (playerY <= 0) {
+        playerY = 0; velocityY = 0; airTime = 0; onGround = true;
+        player.style.transform = "rotate(0deg)";
+      } else {
+        player.style.transform = "rotate(" + Math.min((airTime / AIR_TIME) * 360, 360) + "deg)";
+      }
+    }
+    player.style.bottom = (GROUND + playerY) + "px";
+
+    // scrolling ground
+    groundOffset = (groundOffset + speed * dt) % 72;
+    groundEl.style.backgroundPosition = (-groundOffset) + "px 8px";
+
+    // spawn
+    spawnCountdown -= speed * dt;
+    if (spawnCountdown <= 0) {
+      spawnObstacle();
+      spawnCountdown = rand(speed * 0.95, speed * 1.7);
+    }
+
+    moveThings(dt);
+    updateHUD();
+
+    if (distance >= GOAL) winGame();
+  }
+
+  function spawnObstacle() {
+    const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+    const el = document.createElement("div");
+    el.className = "obstacle " + type.cls;
+    el.style.width = type.w + "px";
+    el.style.height = type.h + "px";
+    const x = stage.clientWidth + 20;
+    el.style.left = x + "px";
+    stage.appendChild(el);
+    obstacles.push({ el, x, w: type.w, h: type.h });
+
+    // sometimes add a coin floating above the next gap
+    if (Math.random() < 0.6) {
+      const c = document.createElement("div");
+      c.className = "coin";
+      const cx = x + rand(180, 260);
+      const cy = GROUND + rand(70, 130);
+      c.style.left = cx + "px";
+      c.style.bottom = cy + "px";
+      stage.appendChild(c);
+      coinList.push({ el: c, x: cx, y: cy - GROUND, collected: false });
+    }
+  }
+
+  function moveThings(dt) {
+    const move = speed * dt;
+    const px1 = PLAYER_X + 6, px2 = PLAYER_X + PLAYER_SIZE - 6;
+    const py1 = playerY + 4,  py2 = playerY + PLAYER_SIZE - 4;
+
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const o = obstacles[i];
+      o.x -= move;
+      o.el.style.left = o.x + "px";
+
+      // collision check (rectangles, slightly forgiving)
+      const hitX = px2 > o.x + 6 && px1 < o.x + o.w - 6;
+      const hitY = py1 < o.h - 6;
+      if (hitX && hitY) { crash(); return; }
+
+      if (o.x < -100) { o.el.remove(); obstacles.splice(i, 1); }
+    }
+
+    for (let i = coinList.length - 1; i >= 0; i--) {
+      const c = coinList[i];
+      c.x -= move;
+      c.el.style.left = c.x + "px";
+      const overlapX = px2 > c.x && px1 < c.x + 26;
+      const overlapY = py2 > c.y && py1 < c.y + 26;
+      if (!c.collected && overlapX && overlapY) {
+        c.collected = true;
+        c.el.classList.add("got");
+        coins++;
+        coinBox.classList.remove("bump");
+        void coinBox.offsetWidth;
+        coinBox.classList.add("bump");
+      }
+      if (c.x < -60 || c.collected && c.el.classList.contains("got") && c.x < -9999) {
+        c.el.remove(); coinList.splice(i, 1);
+      }
+    }
+  }
+
+  function jump() {
+    if (!running || !onGround) return;
+    onGround = false;
+    velocityY = JUMP_SPEED;
+  }
+
+  function updateHUD() {
+    levelEl.textContent = level;
+    distanceEl.textContent = Math.floor(distance);
+    coinsEl.textContent = coins;
+  }
+
+  function crash() {
+    running = false;
+    player.classList.add("dead");
+    setTimeout(() => {
+      document.getElementById("lose-text").textContent =
+        "You hit an obstacle on level " + level + ". Watch the gaps and jump a little earlier.";
+      document.getElementById("lose-distance").textContent = Math.floor(distance);
+      document.getElementById("lose-score").textContent = score();
+      showScreen("lose");
+    }, 700);
+  }
+
+  function winGame() {
+    running = false;
+    document.getElementById("win-text").textContent =
+      "You ran all " + GOAL + " meters through four levels without crashing.";
+    document.getElementById("win-coins").textContent = coins;
+    document.getElementById("win-score").textContent = score();
+    showScreen("win");
+  }
+
+  // ---------- Event listeners ----------
+  document.getElementById("start-btn").addEventListener("click", startGame);
+  document.querySelectorAll(".restart").forEach(b => b.addEventListener("click", startGame));
+  stage.addEventListener("pointerdown", jump);
+  document.addEventListener("keydown", e => {
+    if (e.code === "Space" || e.code === "ArrowUp") {
+      if (running) { e.preventDefault(); jump(); }
+    }
+  });
+</script>
+</body>
+</html>
