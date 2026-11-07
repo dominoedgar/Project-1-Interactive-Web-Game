@@ -388,7 +388,7 @@
         coinBox.classList.add("bump");
       }
       if (c.x < -60 || c.collected && c.el.classList.contains("got") && c.x < -9999) {
-        c.el.remove(); coinList.splice(i, 1);
+        c.el.remove(); coinList.splice(i, 1); // c.x < -9999 becomes  redundant because c.x < -60  is true 
       }
     }
   }
